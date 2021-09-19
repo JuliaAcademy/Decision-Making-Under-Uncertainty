@@ -42,13 +42,13 @@ Introduction to the [`POMDPs.jl`](https://github.com/JuliaPOMDP/POMDPs.jl) frame
 ## 0. Introduction
 
 [![Julia Academy](https://img.shields.io/badge/introduction-lecture-CB3C33)](youtube.com) <!-- TODO -->
-[![Slides](https://img.shields.io/badge/introduction-slides-9558B2)](https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps.pdf)
+[![Slides](https://img.shields.io/badge/introduction-slides-9558B2)](https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps-0-intro.pdf)
 
 Brief introduction to the content of this course.
 
 <kbd>
 <p align="center">
-  <a href="https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps.pdf">
+  <a href="https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps-0-intro.pdf">
     <img src="./media/problems-slide.svg"/>
   </a>
 </p>
@@ -58,7 +58,7 @@ Brief introduction to the content of this course.
 ## 1. MDPs: Markov Decision Processes
 
 [![Julia Academy](https://img.shields.io/badge/MDPs-lecture-CB3C33)]() <!-- TODO -->
-[![Slides](https://img.shields.io/badge/MDPs-slides-9558B2)](https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps.pdf)
+[![Slides](https://img.shields.io/badge/MDPs-slides-9558B2)](https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps-1-mdps.pdf)
 [![Pluto](https://img.shields.io/badge/MDPs-notebook-389826)](https://htmlview.glitch.me/?https://github.com/JuliaAcademy/Decision-Making-Under-Uncertainty/blob/master/html/1-MDPs.jl.html)
 
 Introduction to MDPs using the _Grid World_ problem.
@@ -77,7 +77,7 @@ Introduction to MDPs using the _Grid World_ problem.
 ## 2. POMDPs: Partially Observable Markov Decision Processes
 
 [![Julia Academy](https://img.shields.io/badge/POMDPs-lecture-CB3C33)]() <!-- TODO -->
-[![Slides](https://img.shields.io/badge/POMDPs-slides-9558B2)](https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps.pdf)
+[![Slides](https://img.shields.io/badge/POMDPs-slides-9558B2)](https://github.com/mossr/julia-tufte-beamer/blob/julia-academy/pomdps.jl/julia-academy-pomdps-2-pomdps.pdf)
 [![Pluto](https://img.shields.io/badge/POMDPs-notebook-389826)](https://htmlview.glitch.me/?https://github.com/JuliaAcademy/Decision-Making-Under-Uncertainty/blob/master/html/2-POMDPs.jl.html)
 
 Introduction to POMDPs using the _Crying Baby_ problem.
