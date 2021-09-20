@@ -21,21 +21,7 @@ Introduction to the [`POMDPs.jl`](https://github.com/JuliaPOMDP/POMDPs.jl) frame
 <br/>
 <br/>
 
-**Topics include:**
-- [_Decision making under uncertainty_](youtube.com)
-- [_Markov decision processes (MDPs)_](youtube.com)
-- [_Partially observable Markov decision processes (POMDPs)_](youtube.com)
-- [_State estimation_](youtube.com)
-  - Particle filtering
-- [_Reinforcement learning_](youtube.com)
-  - Q-learning, SARSA
-  - Value function approximation
-- [_Deep reinforcement learning_](youtube.com)
-  - Proximal policy optimization (PPO), deep Q-networks (DQN)
-- [_Imitation learning_](youtube.com)
-  - Behavior cloning
-- [_Black-box validation_](youtube.com)
-  - Adaptive stress testing
+The course covers how to build and solve decision making problems in uncertain environments using the POMDPs.jl ecosystem of Julia packages. Topics covered include sequential decision making frameworks—namely, Markov decision processes (MDPs) and partially observable Markov decision processes (POMDPs)—running simulations, online and offline solution methods (value iteration, Q-learning, SARSA, and Monte Carlo tree search), reinforcement learning, deep reinforcement learning (including proximal policy optimization (PPO), deep Q-networks (DQN), and actor-critic methods), imitation learning through behavior cloning of expert demonstrations, state estimation through particle filtering, belief updating, alpha vectors, approximate methods (including grid interpolation for local approximation value iteration), and black-box stress testing to validate autonomous systems. The course is intended for a wide audience—no prior MDP/POMDP knowledge is expected.
 
 # Lectures
 
