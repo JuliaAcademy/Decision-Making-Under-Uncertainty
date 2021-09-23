@@ -535,7 +535,7 @@ md"""
 """
 
 # ╔═╡ 38af3571-9b0a-4b19-b33a-573101b597a0
-md"Create value iteration GIF? $(@bind create_gif CheckBox(false))"
+md"Create value iteration GIF? $(@bind create_gif CheckBox())"
 
 # ╔═╡ a2b7e745-8b15-42c6-89ca-e97aef1c9a0f
 md"""
@@ -1227,7 +1227,7 @@ md"""
 """
 
 # ╔═╡ 58c8c26f-21c9-4ef5-a0e0-712c9bd51150
-md"Create GIF of single simulated episode? $(@bind create_episode_gif CheckBox(false))"
+md"Create GIF of single simulated episode? $(@bind create_episode_gif CheckBox())"
 
 # ╔═╡ 4f13867a-a91e-4251-8d43-746baa6d12a6
 isfile("gifs/gridworld_episode.gif") && LocalResource("./gifs/gridworld_episode.gif")
