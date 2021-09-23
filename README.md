@@ -24,6 +24,24 @@ Introduction to the [`POMDPs.jl`](https://github.com/JuliaPOMDP/POMDPs.jl) frame
 
 The course covers how to build and solve decision making problems in uncertain environments using the POMDPs.jl ecosystem of Julia packages. Topics covered include sequential decision making frameworks—namely, Markov decision processes (MDPs) and partially observable Markov decision processes (POMDPs)—running simulations, online and offline solution methods (value iteration, Q-learning, SARSA, and Monte Carlo tree search), reinforcement learning, deep reinforcement learning (including proximal policy optimization (PPO), deep Q-networks (DQN), and actor-critic methods), imitation learning through behavior cloning of expert demonstrations, state estimation through particle filtering, belief updating, alpha vectors, approximate methods (including grid interpolation for local approximation value iteration), and black-box stress testing to validate autonomous systems. The course is intended for a wide audience—no prior MDP/POMDP knowledge is expected.
 
+# Installation
+1. [Install Julia (we used v1.6.2, other versions should work)](https://julialang.org/downloads/)
+1. [Install Pluto.jl](https://github.com/fonsp/Pluto.jl#installation)
+1. Clone this repo:
+    ```bash
+    git clone https://github.com/JuliaAcademy/Decision-Making-Under-Uncertainty
+    ```
+1. From the Julia REPL (`julia`), run Pluto (a web browser window will pop-up):
+    ```julia
+    julia> using Pluto
+    julia> Pluto.run()
+    ```
+    _Or you can simply run the following in a terminal:_
+    ```bash
+    julia -E "using Pluto; Pluto.run()"
+    ```
+1. From Pluto, open one of the `.jl` notebook files located in the `Decision-Making-Under-Uncertainty/notebooks/` directory—enjoy!
+
 # Lectures
 
 The lectures can be found on [Julia Academy](https://juliaacademy.com/courses/decision-making-under-uncertainty-with-pomdps-jl) and [YouTube](https://www.youtube.com/playlist?list=PLP8iPy9hna6QPqk4N8eBk0oXzLrLbOtTA). They are broken down as follows.
