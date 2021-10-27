@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.0
+# v0.16.4
 
 using Markdown
 using InteractiveUtils
@@ -276,6 +276,9 @@ md"""
 
 # ╔═╡ 83b79e64-cc6e-4ee7-8f48-b2d857bfef1d
 md"Create mountain car animated gif? $(@bind create_gif_learn CheckBox(false))"
+
+# ╔═╡ 090001eb-c8f2-41ea-a8c8-53d96f5a5123
+policy
 
 # ╔═╡ d7fd06d6-f4b1-4c15-a08c-463ec067e105
 md"""
@@ -1603,6 +1606,7 @@ version = "0.9.1+5"
 # ╟─023efba0-c674-4680-a40f-1860b67dcbcd
 # ╟─83b79e64-cc6e-4ee7-8f48-b2d857bfef1d
 # ╠═3e718732-b442-4de6-b339-996092597bae
+# ╠═090001eb-c8f2-41ea-a8c8-53d96f5a5123
 # ╟─d7fd06d6-f4b1-4c15-a08c-463ec067e105
 # ╠═8227f6d5-e1c2-4b29-b3af-da30df79a2cd
 # ╠═5424ae39-62d0-4250-b9a5-18f924d12663
