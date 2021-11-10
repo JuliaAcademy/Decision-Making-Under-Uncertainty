@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.0
+# v0.16.4
 
 using Markdown
 using InteractiveUtils
@@ -30,11 +30,17 @@ end
 # ╔═╡ d0a58780-f4d2-11ea-155d-f55c848f91a8
 using POMDPs, QuickPOMDPs, POMDPModelTools, BeliefUpdaters, Parameters
 
+# ╔═╡ fd7f872d-7ef2-4987-af96-4ca4573f29fc
+using POMDPPolicies
+
 # ╔═╡ 17bbb35d-b74d-47a7-8349-904338127977
 using QMDP
 
 # ╔═╡ 9cdc9132-f524-11ea-2051-41beccfeb0e4
 using FIB
+
+# ╔═╡ b0f1a551-9eec-4b7d-8fa5-afcbc6a86cd9
+using PointBasedValueIteration
 
 # ╔═╡ df3fd98d-40df-4850-8410-992610bbad10
 using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
@@ -411,6 +417,9 @@ function O(s::State, a::Action, s′::State)
 	end
 end
 
+# ╔═╡ a78db25b-c324-4ffb-b39b-383768b0919c
+O(a::Action, s′::State) = O(FULLₛ, a, s′) # first s::State is unused
+
 # ╔═╡ 648d16b0-f4d9-11ea-0a53-39c0bfe2b4e1
 md"""
 ### Reward Function
@@ -509,11 +518,7 @@ end;
 # ╔═╡ fb777410-f52b-11ea-294b-77b36ef4f6b3
 """Policy that feeds the baby when our belief is stronger towards being hungry"""
 function POMDPs.action(::FeedWhenBelievedHungry, b::Belief)
-	if b[1] > b[2]
-		return FEEDₐ
-	else
-		return IGNOREₐ
-	end	
+	return b[1] > b[2] ? FEEDₐ : IGNOREₐ
 end;
 
 # ╔═╡ 2a144c90-f4db-11ea-3a54-bdb5002577f1
@@ -617,26 +622,41 @@ md"""
 ## Solutions: _Offline_
 As with POMDPs, we can solve for a policy either _offline_ (to generate a full mapping from _beliefs_ to _actions_ for all _states_) or _online_ to only generate a mapping from the current belief state to the next action.
 
-### QMDP
-To solve the POMDP, we first need a *solver*. We'll use the QMDP solver$^3$ from `QMDP.jl`.
+Solution methods typically follow the defined `POMDPs.jl` interface syntax:
+
+```julia
+solver = FancyAlgorithmSolver() # inputs are the parameters of said algorithm
+policy = solve(solver, pomdp)   # solves the POMDP and returns a policy
+```
 """
 
-# ╔═╡ 1ae7c200-f4dc-11ea-29c1-b3710f89f475
-solver = QMDPSolver();
+# ╔═╡ 0aa2497d-f979-46ee-8e93-98cb35706963
+md"""
+### Policy Representation: Alpha Vectors
+Since we do not know the current state exactly, we can compute the *utility* of our belief *b*
+
+$$U(b) = \sum_s b(s)U(s) = \mathbf{α}^\top \mathbf{b}$$
+
+where $\mathbf{α}$ is called an _alpha vector_ that contains the expected utility for each _belief state_ under a policy.
+"""
+
+# ╔═╡ cfef767b-211f-40d6-af02-3ad0635ffa85
+md"""
+### QMDP
+To solve the POMDP, we first need a *solver*. We'll use the QMDP solver$^3$ from `QMDP.jl`. QMDP will treat each belief state as the true state (thus turning it into an MDP), and then use value iteration to solve that MDP.
+
+$$\alpha_a^{(k+1)}(s) = R(s,a) + \gamma\sum_{s'}T(s'\mid s, a)\max_{a'}\alpha_{a'}^{(k)}(s')$$
+"""
 
 # ╔═╡ 1e14b800-f529-11ea-320b-59280510d94c
 md"*Now we solve the POMDP to create the policy. Note the policy type of `AlphaVectorPolicy`.*"
 
-# ╔═╡ 3fea65d0-f4dc-11ea-3531-6de282399dce
-policy = solve(solver, pomdp)
-
 # ╔═╡ 70c99bb2-f524-11ea-1509-79b6ce54df1f
 md"""
 ### Fast Informed Bound (FIB)
-Another _offline_ POMDP solver is the _fast informed bound_ (FIB)$^2$.
+Another _offline_ POMDP solver is the _fast informed bound_ (FIB)$^2$. FIB actually uses information from the observation model $O$ (i.e. "informed").
 
-##### Excersice: Solve a POMDP Yourself
-Now try to solve for a `policy` using the fast informed bound (`FIB.jl`) solver.
+$$\alpha_a^{(k+1)}(s) = R(s,a) + \gamma\sum_o\max_{a'}\sum_{s'}O(o \mid a,s')T(s'\mid s, a)\alpha_{a'}^{(k)}(s')$$
 
 See the usage here: [https://github.com/JuliaPOMDP/FIB.jl](https://github.com/JuliaPOMDP/FIB.jl)
 """
@@ -647,61 +667,106 @@ fib_solver = FIBSolver()
 # ╔═╡ 383c5b40-f4e1-11ea-3546-d7d143ce24d8
 fib_policy = solve(fib_solver, pomdp)
 
+# ╔═╡ 37d81c83-51a6-49a6-800d-1d2d241f5e29
+md"""
+### Point-Based Value Iteration (PBVI)
+_Point-based value iteration_ provides a lower bound and operates on a finite set of $m$ beliefs $B=\{\mathbf{b}_1, \ldots, \mathbf{b}_m\}$, each with an associated alpha vector $\Gamma = \{\boldsymbol{\alpha}_1, \ldots, \boldsymbol{\alpha}_m\}$. These alpha vector define an _approximately optimal value function_:
+
+$$U^\Gamma(\mathbf{b}) = \max_{\boldsymbol\alpha \in \Gamma}\boldsymbol\alpha^\top\mathbf{b}$$
+
+with a lower bound on the optimal value function, $U^\Gamma(\mathbf{b}) \le U^*(\mathbf{b})$ for all $\mathbf{b}$.
+
+PBVI iterates through every possible action $a$ and observation $o$ to extract the alpha vector from the set $\Gamma$ that is maximal at the _resulting_ (i.e., updated) belief $\mathbf{b}'$:
+
+$$\begin{align*}
+	\boldsymbol{\alpha}_{a,o} &= \operatorname*{arg\,max}_{\boldsymbol{\alpha} \in \Gamma}\boldsymbol{\alpha}^\top\operatorname{Update}(\mathbf{b}, a, o)\\
+                             &= \operatorname*{arg\,max}_{\boldsymbol{\alpha} \in \Gamma}\boldsymbol{\alpha}^\top\mathbf{b}'
+\end{align*}$$
+
+Then we construct a new alpha vector for each action $a$ based on these $\boldsymbol{\alpha}_{a,o}$ vectors:
+
+$$\alpha_a(s) = R(s,a) + \gamma\sum_{s',o}O(o \mid a,s')T(s'\mid s, a)\alpha_{a,o}(s')$$
+
+With the final alpha vector produced by the backup operator being:
+
+$$𝛂 = \operatorname*{arg\,max}_{𝛂_a} 𝛂_a^\top \mathbf{b}$$
+"""
+
+# ╔═╡ 4a98bbf6-6ad2-43ae-95b5-a7e8fa53ec0e
+pbvi_solver = PBVISolver()
+
+# ╔═╡ 27b31ffc-0c9e-4bff-99ad-2a5ff0511101
+pbvi_policy = solve(pbvi_solver, pomdp)
+
 # ╔═╡ 6ea123be-f4df-11ea-21d2-71b166bb066a
 md"""
-## Alpha Vectors
-Since we do not know the current state exactly, we can compute the *utility* of our belief *b*
+## Visualizing Alpha Vectors
+**_Recall_**: Since we do not know the current state exactly, we can compute the *utility* of our belief *b*
 
 $$U(b) = \sum_s b(s)U(s) = \mathbf{α}^\top \mathbf{b}$$
 
-where $\mathbf{α}$ is called an _alpha vector_ that contains the expected utility under the policy $\pi$ for each state.
+where $\mathbf{α}$ is called an _alpha vector_ that contains the expected utility for each _belief state_ under a policy.
 """
 
-# ╔═╡ ebe99578-a11c-4c30-a33f-10e78614a70e
-@bind p_hungry Slider(0:0.01:1, default=0.5, show_value=true)
-
 # ╔═╡ 293183b4-36a9-462a-a88e-1d125baac781
-begin
+function plot_alpha_vectors(policy, p_hungry, label="QMDP")
 	# calculate the maximum utility, which determines the action to take
 	current_belief = [p_hungry, 1-p_hungry]
-	utility_feed = policy.alphas[1]' * current_belief # dot product
-	utility_ignore = policy.alphas[2]' * current_belief # dot product
+	feed_idx = Int(policy.action_map[1])+1
+	ignore_idx = Int(policy.action_map[2])+1
+	utility_feed = policy.alphas[feed_idx]' * current_belief # dot product
+	utility_ignore = policy.alphas[ignore_idx]' * current_belief # dot product
 	lw_feed, lw_ignore = 1, 1
+	check_feed, check_ignore = "", ""
 	if utility_feed >= utility_ignore
 		current_utility = utility_feed
 		lw_feed = 2
+		check_feed = "✓"
 	else
 		current_utility = utility_ignore
 		lw_ignore = 2
+		check_ignore = "✓"
 	end
 	
 	# plot the alpha vector hyperplanes
 	plot(size=(600,340))
-	plot!(Int.([FULLₛ, HUNGRYₛ]), policy.alphas[1], label="feed (QMDP)",
-		 c=:blue, lw=lw_feed)
-	plot!(Int.([FULLₛ, HUNGRYₛ]), policy.alphas[2], label="ignore (QMDP)",
-		  c=:red, lw=lw_ignore)
-
-	if false # fib_policy isa AlphaVectorPolicy
-		plot!(Int.([FULLₛ, HUNGRYₛ]), fib_policy.alphas[1], label="feed (FIB)",
-			  style=:dash, c=:brown)
-		plot!(Int.([FULLₛ, HUNGRYₛ]), fib_policy.alphas[2], label="ignore (FIB)",
-		      style=:dash, c=:black)
-	end
-
+	plot!(Int.([FULLₛ, HUNGRYₛ]), policy.alphas[ignore_idx],
+		  label="ignore ($label) $(check_ignore)", c=:red, lw=lw_ignore)
+	plot!(Int.([FULLₛ, HUNGRYₛ]), policy.alphas[feed_idx],
+		  label="feed ($label) $(check_feed)", c=:blue, lw=lw_feed)
+	
 	# plot utility of selected action
+	rnd(x) = round(x,digits=3)
 	scatter!([p_hungry], [current_utility], 
-		     c=:black, ms=5, label=round(current_utility, digits=3))
+		     c=:black, ms=5, label="($(rnd(p_hungry)), $(rnd(current_utility)))")
 
 	title!("Alpha Vectors")
 	xlabel!("𝑝(hungry)")
 	ylabel!("utility 𝑈(𝐛)")
 	xlims!(0, 1)
-	ylims!(-40, -10)
+	ylims!(-40, 5)
 end
 
+# ╔═╡ ebe99578-a11c-4c30-a33f-10e78614a70e
+@bind p_hungry Slider(0:0.01:1, default=0.5, show_value=true)
+
+# ╔═╡ 53b584db-e716-4090-a19e-4530d8694c65
+[p_hungry, 1-p_hungry]
+
+# ╔═╡ d4f99682-76ce-4ebc-828b-cff812d4ff56
+@bind qmdp_iters Slider(0:60, default=60, show_value=true)
+
+# ╔═╡ 1ae7c200-f4dc-11ea-29c1-b3710f89f475
+qmdp_solver = QMDPSolver(max_iterations=qmdp_iters);
+
+# ╔═╡ 3fea65d0-f4dc-11ea-3531-6de282399dce
+qmdp_policy = solve(qmdp_solver, pomdp)
+
+# ╔═╡ a8460253-884f-474c-9d21-a7d3ee261120
+plot_alpha_vectors(qmdp_policy, p_hungry)
+
 # ╔═╡ a4883a50-39df-4875-8554-30c97240b53d
-action(policy, [p_hungry, 1-p_hungry])
+action(qmdp_policy, [p_hungry, 1-p_hungry])
 
 # ╔═╡ c322f12c-eb6e-4ec0-b5d5-1f1ba00cc216
 md"""
@@ -719,10 +784,150 @@ $$\begin{align}
 
 """
 
+# ╔═╡ da57eb54-db90-42c2-ad30-8479ea2ff857
+md"""
+### Dominanting alpha vectors
+To show the piecewise combination of the dominant alpha vectors, here we plot the combination and color the portion of the vector that corresponds to the two actions: $\texttt{feed}$ and $\texttt{ignore}$.
+"""
+
+# ╔═╡ f85e829f-ebb4-4eba-a2e9-85661b338339
+@bind show_thresholds CheckBox(true)
+
+# ╔═╡ 09a4bc95-f566-4248-bae0-ee142b1c9b4f
+@bind show_fib CheckBox(true)
+
+# ╔═╡ d95811f2-98c9-417d-9f72-2ed161e5419c
+@bind show_pbvi CheckBox(true)
+
+# ╔═╡ c8cdfb8a-8666-443b-bd42-782585c95948
+begin
+	p_range = 0:0.001:1
+
+	dominating_action_idx(policy, 𝐛) = Int(action(policy, 𝐛))+1
+
+	dominant_actions(policy) = map(p->
+		dominating_action_idx(policy,[p,1-p]), p_range)
+
+	dominant_line(policy) = map(p->
+		policy.alphas[dominating_action_idx(policy,[p,1-p])]'*[p,1-p], p_range)
+
+	dominant_line_multiple_α(policy) = map(p->
+		argmax(αₐ->αₐ'*[p,1-p], policy.alphas)'*[p,1-p], p_range)
+
+	dominant_color(policy, c1=:blue, c2=:red) = map(p->
+		dominating_action_idx(policy,[p,1-p]) == 1 ? c1 : c2, p_range)
+
+	qmdp_solver2 = QMDPSolver()
+	qmdp_policy2 = solve(qmdp_solver2, pomdp)
+
+	fib_solver2 = FIBSolver()
+	fib_policy2 = solve(fib_solver2, pomdp)
+
+	pbvi_solver2 = PBVISolver()
+	pbvi_policy2 = solve(pbvi_solver2, pomdp)
+
+	dominant_line_qmdp = dominant_line(qmdp_policy2)
+	dominant_color_qmdp = dominant_color(qmdp_policy2)
+
+	dominant_line_fib = dominant_line(fib_policy2)
+	dominant_color_fib = dominant_color(fib_policy2, :cyan, :magenta)
+
+	dominant_line_pbvi = dominant_line_multiple_α(pbvi_policy2)
+	dominant_color_pbvi = dominant_color(pbvi_policy2, :green, :black)
+	
+	# plot the dominant alpha vector hyperplanes
+	plot(size=(600,340))
+	plot!(p_range, dominant_line_qmdp, label="QMDP",
+		  c=dominant_color_qmdp, lw=2)
+	
+	if show_fib
+		plot!(p_range, dominant_line_fib, label="FIB",
+			  c=dominant_color_fib, lw=2)
+	end
+	
+	if show_pbvi
+		plot!(p_range, dominant_line_pbvi, label="PBVI",
+			  c=dominant_color_pbvi, lw=2)
+	end
+
+	thresh_qmdp = p_range[findfirst(dominant_actions(qmdp_policy2) .== 1)]
+	thresh_fib = p_range[findfirst(dominant_actions(fib_policy2) .== 1)]
+	thresh_pbvi = p_range[findfirst(dominant_actions(pbvi_policy2) .== 1)]
+	
+	if show_thresholds
+		plot!([thresh_qmdp, thresh_qmdp], [-40, 5], color=:gray, style=:dash,
+			  label="p ≈ $thresh_qmdp (QMDP)")
+
+		if show_fib
+			plot!([thresh_fib, thresh_fib], [-40, 5], color=:gray, style=:dash,
+				  label="p ≈ $thresh_fib (FIB)")
+		end
+
+		if show_pbvi
+			plot!([thresh_pbvi, thresh_pbvi], [-40, 5], color=:gray, style=:dash,
+				  label="p ≈ $thresh_pbvi (PBVI)")
+		end
+	end
+
+	title!("Dominant Alpha Vectors")
+	xlabel!("𝑝(hungry)")
+	ylabel!("utility 𝑈(𝐛)")
+	xlims!(0, 1)
+	ylims!(-40, 5)
+end
+
+# ╔═╡ fb06f470-cba7-4a46-b997-bc3f8b7da7e1
+md"""
+### PBVI alpha vector
+We now show how the PBVI algorithm selects the dominant alpha vector.
+"""
+
+# ╔═╡ f485cd7a-fe3c-4383-a446-8ce92d53384a
+@bind p Slider(0:0.01:1, default=0.5, show_value=true)
+
+# ╔═╡ 347ed884-bf27-4364-9ab9-f51795a38852
+plot_alpha_vectors(pbvi_policy, p, "PBVI")
+
+# ╔═╡ 26869db9-4400-4d5a-ba3d-a6d2d7c79c4e
+𝐛 = [p, 1-p]
+
+# ╔═╡ 01f371b8-7717-4f31-849e-9062ed79953c
+action(pbvi_policy, 𝐛)
+
+# ╔═╡ 9ffe1fcd-fab0-42e0-ab3a-4b847b2986d7
+md"""
+$$𝛂 = \operatorname*{arg\,max}_{𝛂_a} 𝛂_a^\top \mathbf{b}$$
+"""
+
+# ╔═╡ 478ead5f-7a08-4a35-bf1a-34efdd876ec6
+𝛂 = argmax(αₐ->αₐ'*𝐛, pbvi_policy.alphas)
+
+# ╔═╡ 78166467-9d55-4756-aabc-93d6f6f71e85
+pbvi_policy.alphas # PBVI: m alpha vectors
+
+# ╔═╡ abd5ae8d-aa46-4a6e-af7e-b43fb3cbd0a1
+qmdp_policy.alphas # QMDP: 1 alpha vector per action
+
+# ╔═╡ d251bb16-985f-480c-ae2a-51d04412d975
+begin
+	dominant_color_pbvi2 = dominant_color(pbvi_policy2)
+	
+	# plot the dominant alpha vector hyperplanes
+	plot(size=(600,340))
+	plot!(p_range, dominant_line_pbvi, label="PBVI",
+		  c=dominant_color_pbvi2, lw=2)
+
+	title!("Dominant Alpha Vectors")
+	xlabel!("𝑝(hungry)")
+	ylabel!("utility 𝑈(𝐛)")
+	xlims!(0, 1)
+	ylims!(-40, 5)
+end
+
 # ╔═╡ 2262f5e0-f60d-11ea-3744-c569380f8d28
 md"""
 ## Solutions: _Online_
-Just like MDPs, we can solve POMDPs online to produce a `planner` which we then query for an action *online*.
+We can solve POMDPs online to produce a `planner` which we then query for an action *online*.
 """
 
 # ╔═╡ e489c1b0-f619-11ea-1cbd-e18cd6b598cb
@@ -745,6 +950,56 @@ aₚ, info = action_info(pomcp_planner, initialstate(pomdp), tree_in_info=true);
 
 # ╔═╡ ee558380-f611-11ea-2e46-77211ed54f6b
 tree = D3Tree(info[:tree], init_expand=3)
+
+# ╔═╡ 71406b44-9eed-4e18-b0e8-d1b723d943aa
+md"""
+## Concise POMDP definition
+
+```julia
+using POMDPs, POMDPModelTools, QuickPOMDPs
+
+@enum State hungry full
+@enum Action feed ignore
+@enum Observation crying quiet
+
+pomdp = QuickPOMDP(
+    states       = [hungry, full],  # 𝒮
+    actions      = [feed, ignore],  # 𝒜
+    observations = [crying, quiet], # 𝒪
+    initialstate = [full],          # Deterministic initial state
+    discount     = 0.9,             # γ
+
+    transition = function T(s, a)
+        if a == feed
+            return SparseCat([hungry, full], [0, 1])
+        elseif s == hungry && a == ignore
+            return SparseCat([hungry, full], [1, 0])
+        elseif s == full && a == ignore
+            return SparseCat([hungry, full], [0.1, 0.9])
+        end
+    end,
+
+    observation = function O(s, a, s′)
+        if s′ == hungry
+            return SparseCat([crying, quiet], [0.8, 0.2])
+        elseif s′ == full
+            return SparseCat([crying, quiet], [0.1, 0.9])
+        end
+    end,
+
+    reward = (s,a)->(s == hungry ? -10 : 0) + (a == feed ? -5 : 0)
+)
+
+# Solve POMDP
+using QMDP
+solver = QMDPSolver()
+policy = solve(solver, pomdp)
+
+# Query policy for an action, given a belief vector
+𝐛 = [0.2, 0.8]
+a = action(policy, 𝐛)
+```
+"""
 
 # ╔═╡ 827bd43e-f4b6-11ea-04be-5b49c1b1a30f
 md"""
@@ -780,24 +1035,6 @@ end
 
 # ╔═╡ dae97d90-f52d-11ea-08c5-bd13a9acbb8a
 hint(md"Maybe the `stateindex` function defined above could help—knowing that `b[1]` = _p(hungry)_ and `b[2]` = _p(full)_.")
-
-# ╔═╡ 3eefdfee-f52e-11ea-0e21-b97c86ac3c13
-begin
-	using POMDPPolicies
-	if ismissing(fib_policy)
-		keep_working(md"Try to solve for the policy using FIB.")
-	elseif typeof(fib_policy) <: AlphaVectorPolicy
-		if isapprox(fib_policy.alphas[1], [-29.4557, -19.4557], atol=1e-4) && 
-			isapprox(fib_policy.alphas[2], [-36.5093, -16.0629], atol=1e-4)
-			correct(md"Nice! The fast informed bound solver produced the correct alpha vectors!")
-		else
-			almost(md"Make sure to use the default parameters for the `FIBSolver`.")
-		end
-	end
-end
-
-# ╔═╡ ca2c9cbe-d97d-4f21-b862-41634160a843
-hint(md"The **FIB.jl** package exports the `FIBSolver` contructor. Also, refer to the other `solve(solver, pomdp)` syntax above.")
 
 # ╔═╡ 50b377bc-5246-4eaa-9f83-d9e1592d4447
 TableOfContents(title="Partially Observable MDPs", depth=4)
@@ -854,6 +1091,7 @@ POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+PointBasedValueIteration = "835c131e-675f-4498-8e2c-c054c75556e1"
 QMDP = "3aa3ecc9-5a5d-57c8-8188-3e47bd8068d2"
 QuickPOMDPs = "8af83fb2-a731-493c-9049-9e19dbce6165"
 
@@ -868,6 +1106,7 @@ POMDPs = "~0.9.3"
 Parameters = "~0.12.2"
 Plots = "~1.22.0"
 PlutoUI = "~0.7.9"
+PointBasedValueIteration = "~0.2.1"
 QMDP = "~0.1.6"
 QuickPOMDPs = "~0.2.12"
 """
@@ -1080,6 +1319,12 @@ git-tree-sha1 = "693210145367e7685d8604aee33d9bfb85db8b31"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
 version = "0.11.9"
 
+[[FiniteHorizonPOMDPs]]
+deps = ["POMDPLinter", "POMDPModelTools", "POMDPs", "Random"]
+git-tree-sha1 = "b2f2db6402cf6682ce7b1f1b5ccee84de3b5d19e"
+uuid = "8a13bbfe-798e-11e9-2f1c-eba9ee5ef093"
+version = "0.3.1"
+
 [[FixedPointNumbers]]
 deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
@@ -1116,9 +1361,9 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
-git-tree-sha1 = "dba1e8614e98949abfa60480b13653813d8f0157"
+git-tree-sha1 = "0c603255764a1fa0b61752d2bec14cfbd18f7fe8"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
-version = "3.3.5+0"
+version = "3.3.5+1"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "Serialization", "Sockets", "Test", "UUIDs"]
@@ -1519,6 +1764,12 @@ deps = ["Base64", "Dates", "InteractiveUtils", "JSON", "Logging", "Markdown", "R
 git-tree-sha1 = "44e225d5837e2a2345e69a1d1e01ac2443ff9fcb"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 version = "0.7.9"
+
+[[PointBasedValueIteration]]
+deps = ["BeliefUpdaters", "Distributions", "FiniteHorizonPOMDPs", "LinearAlgebra", "POMDPLinter", "POMDPModelTools", "POMDPPolicies", "POMDPs"]
+git-tree-sha1 = "c34ec7660c76eb694a90fdedd8859acb20d3fdde"
+uuid = "835c131e-675f-4498-8e2c-c054c75556e1"
+version = "0.2.1"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1992,6 +2243,7 @@ version = "0.9.1+5"
 # ╠═3d57d840-f4d5-11ea-2744-c3e456949d67
 # ╟─d00d9b00-f4d7-11ea-3a5c-fdad48fabf71
 # ╠═61655130-f4d6-11ea-3aaf-53233c68b6a5
+# ╠═a78db25b-c324-4ffb-b39b-383768b0919c
 # ╟─648d16b0-f4d9-11ea-0a53-39c0bfe2b4e1
 # ╠═153496b0-f4d9-11ea-1cde-bbf92733afe3
 # ╟─b664c3b0-f52a-11ea-1e44-71034541ace4
@@ -2000,6 +2252,7 @@ version = "0.9.1+5"
 # ╠═0aa6d08a-8d41-44d5-a1e5-85a6bcb92e81
 # ╠═a858eddc-716b-49ac-864f-04c46b816ab6
 # ╟─704ea980-f4db-11ea-01db-233562722c4d
+# ╠═fd7f872d-7ef2-4987-af96-4ca4573f29fc
 # ╟─d2a3f220-f52b-11ea-2360-bf797a6f9374
 # ╠═f3b9f270-f52b-11ea-2f2e-ef56d5522ffb
 # ╟─ea5c5ff0-f52c-11ea-2d8f-73cdc0137343
@@ -2028,6 +2281,8 @@ version = "0.9.1+5"
 # ╟─fc03234f-1b89-4735-a447-7082998a6110
 # ╠═0c9e92f0-f527-11ea-1fc2-71bb41a0405a
 # ╟─0fea57a0-f4dc-11ea-3133-571b9a56d25b
+# ╟─0aa2497d-f979-46ee-8e93-98cb35706963
+# ╟─cfef767b-211f-40d6-af02-3ad0635ffa85
 # ╠═17bbb35d-b74d-47a7-8349-904338127977
 # ╠═1ae7c200-f4dc-11ea-29c1-b3710f89f475
 # ╟─1e14b800-f529-11ea-320b-59280510d94c
@@ -2036,14 +2291,34 @@ version = "0.9.1+5"
 # ╠═9cdc9132-f524-11ea-2051-41beccfeb0e4
 # ╠═b2c4ef60-f524-11ea-02eb-434f1eed5a99
 # ╠═383c5b40-f4e1-11ea-3546-d7d143ce24d8
-# ╟─3eefdfee-f52e-11ea-0e21-b97c86ac3c13
-# ╟─ca2c9cbe-d97d-4f21-b862-41634160a843
+# ╟─37d81c83-51a6-49a6-800d-1d2d241f5e29
+# ╠═b0f1a551-9eec-4b7d-8fa5-afcbc6a86cd9
+# ╠═4a98bbf6-6ad2-43ae-95b5-a7e8fa53ec0e
+# ╠═27b31ffc-0c9e-4bff-99ad-2a5ff0511101
 # ╟─6ea123be-f4df-11ea-21d2-71b166bb066a
 # ╠═df3fd98d-40df-4850-8410-992610bbad10
 # ╟─293183b4-36a9-462a-a88e-1d125baac781
+# ╠═a8460253-884f-474c-9d21-a7d3ee261120
+# ╠═53b584db-e716-4090-a19e-4530d8694c65
 # ╠═a4883a50-39df-4875-8554-30c97240b53d
 # ╠═ebe99578-a11c-4c30-a33f-10e78614a70e
+# ╠═d4f99682-76ce-4ebc-828b-cff812d4ff56
 # ╟─c322f12c-eb6e-4ec0-b5d5-1f1ba00cc216
+# ╟─da57eb54-db90-42c2-ad30-8479ea2ff857
+# ╠═f85e829f-ebb4-4eba-a2e9-85661b338339
+# ╠═09a4bc95-f566-4248-bae0-ee142b1c9b4f
+# ╠═d95811f2-98c9-417d-9f72-2ed161e5419c
+# ╟─c8cdfb8a-8666-443b-bd42-782585c95948
+# ╟─fb06f470-cba7-4a46-b997-bc3f8b7da7e1
+# ╠═347ed884-bf27-4364-9ab9-f51795a38852
+# ╠═f485cd7a-fe3c-4383-a446-8ce92d53384a
+# ╠═26869db9-4400-4d5a-ba3d-a6d2d7c79c4e
+# ╠═01f371b8-7717-4f31-849e-9062ed79953c
+# ╟─9ffe1fcd-fab0-42e0-ab3a-4b847b2986d7
+# ╠═478ead5f-7a08-4a35-bf1a-34efdd876ec6
+# ╠═78166467-9d55-4756-aabc-93d6f6f71e85
+# ╠═abd5ae8d-aa46-4a6e-af7e-b43fb3cbd0a1
+# ╟─d251bb16-985f-480c-ae2a-51d04412d975
 # ╟─2262f5e0-f60d-11ea-3744-c569380f8d28
 # ╟─e489c1b0-f619-11ea-1cbd-e18cd6b598cb
 # ╠═315ede12-f60d-11ea-076e-e1b8b460aa9e
@@ -2053,6 +2328,7 @@ version = "0.9.1+5"
 # ╠═3f7adba0-f60f-11ea-3713-b7c1a3f2c285
 # ╠═6dc0ddc0-f60f-11ea-2a57-158b8a68be4e
 # ╠═ee558380-f611-11ea-2e46-77211ed54f6b
+# ╟─71406b44-9eed-4e18-b0e8-d1b723d943aa
 # ╟─827bd43e-f4b6-11ea-04be-5b49c1b1a30f
 # ╟─7022711e-f522-11ea-30d7-b9f15b2d5f14
 # ╠═50b377bc-5246-4eaa-9f83-d9e1592d4447
