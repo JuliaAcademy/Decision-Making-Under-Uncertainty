@@ -436,7 +436,7 @@ function plot_transition_probability(distr)
 	@info probs
 	cmap_probs = ColorScheme([colorant"#B3BCDB", colorant"#4063D8"])
 	bar(probs,
-		xformatter = x->1 <= x <= length(xtick_states) ? xtick_states[Int(x)] : "",
+		xformatter = x->1 <= x <= length(xtick_states) ? string(xtick_states[Int(x)]) : "",
 		label=false,
 		aspect_ratio=5,
 		group=xtick_states,
